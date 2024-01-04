@@ -108,13 +108,12 @@ module.exports = {
           : [],
     },
     filecoin: {
-      url: `https://rpc.ankr.com/filecoin/${
-        process.env.FILECOIN_API_KEY ?? ""
-      }`,
+      url: `https://rpc.ankr.com/filecoin`,
       accounts:
         process.env.FILECOIN_PRIVATE_KEY !== undefined
           ? [process.env.FILECOIN_PRIVATE_KEY]
           : [],
+      timeout: 60_000,
     },
     // testnets
     sepolia: {
@@ -154,13 +153,12 @@ module.exports = {
           : [],
     },
     "filecoin-calibration": {
-      url: `https://api.calibration.node.glif.io/rpc/v1${
-        process.env.FILECOIN_CALIBRATION_API_KEY ?? ""
-      }`,
+      url: `https://api.calibration.node.glif.io/rpc/v1`,
       accounts:
         process.env.FILECOIN_CALIBRATION_PRIVATE_KEY !== undefined
           ? [process.env.FILECOIN_CALIBRATION_PRIVATE_KEY]
           : [],
+      timeout: 60_000,
     },
   },
 };
