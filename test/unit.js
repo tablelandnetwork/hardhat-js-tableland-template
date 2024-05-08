@@ -1,3 +1,5 @@
+require("@nomicfoundation/hardhat-toolbox");
+require("@openzeppelin/hardhat-upgrades");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const chai = require("chai");
@@ -11,49 +13,52 @@ const expect = chai.expect;
 // Note: SQL *does not* get validated nor materialized in this environment
 describe("Starter contract", function () {
   // Set global accounts and the Tableland registry contract
-  let accounts;
-  let registry;
+  let accounts
+  let registry
   // Custom `Starter` contract
-  let starter;
+  let starter
 
   // Deploy the`TablelandTables` registry contract once
   async function deployFixture() {
     // Set global accounts
     accounts = await ethers.getSigners();
     // Deploy `TablelandTables` to allow for table creates and mutates
-    const TablelandTablesFactory = await ethers.getContractFactory(
-      "TablelandTables"
-    );
-    registry = await (
-      await upgrades.deployProxy(
-        TablelandTablesFactory,
-        ["http://localhost:8080/"],
-        {
-          kind: "uups",
-        }
-      )
-    ).deployed();
+    const TablelandTablesFactory =
+      await ethers.getContractFactory("TablelandTables");
+    // @ts-expect-error `Contract` is an extension of `BaseContract`
+    const deployment = (await upgrades.deployProxy(
+      TablelandTablesFactory,
+      ["http://localhost:8080/"],
+      {
+        kind: "uups",
+      }
+    ))
+    registry = await deployment.waitForDeployment();
   }
 
   // Deploy the fixture and `Starter` to ensure deterministic table IDs
   beforeEach(async function () {
     await loadFixture(deployFixture);
     const StarterFactory = await ethers.getContractFactory("Starter");
-    starter = await StarterFactory.deploy();
-    await starter.deployed();
+    // @ts-expect-error `Contract` is an extension of `BaseContract`
+    starter = (await StarterFactory.deploy())
+    await starter.waitForDeployment();
   });
 
   it("should deploy, create a table, and set the controller", async function () {
     // Check that the registry minted a table to the starter and set the controller
-    await expect(starter.deployTransaction)
+    const txResponse = starter.deploymentTransaction();
+    const rec = await txResponse?.wait();
+    const tx = await rec?.getTransaction();
+    await expect(tx)
       .to.emit(registry, "CreateTable")
-      .withArgs(starter.address, 1, anyValue) // Use `anyValue` instead of a CREATE TABLE statement
+      .withArgs(await starter.getAddress(), 1, anyValue) // Use `anyValue` instead of a CREATE TABLE statement
       .to.emit(registry, "SetController")
-      .withArgs(1, starter.address);
+      .withArgs(1, await starter.getAddress());
   });
 
   it("should have the contract own the table", async function () {
-    expect(await registry.ownerOf(1)).to.equal(starter.address); // Table ID is `1` in this environment
+    expect(await registry.ownerOf(1)).to.equal(await starter.getAddress()); // Table ID is `1` in this environment
   });
 
   it("should have the correct policy set", async function () {
@@ -80,18 +85,18 @@ describe("Starter contract", function () {
     // You *could* directly call the registry contract such that ACLs are enforced
     await expect(await starter.connect(accounts[1]).insertVal("hello"))
       .to.emit(registry, "RunSQL")
-      .withArgs(starter.address, true, 1, anyValue, anyValue);
+      .withArgs(await starter.getAddress(), true, 1, anyValue, anyValue);
   });
 
   it("should call registry to update value", async function () {
     await expect(await starter.connect(accounts[1]).updateVal(1, "world"))
       .to.emit(registry, "RunSQL")
-      .withArgs(starter.address, true, 1, anyValue, anyValue);
+      .withArgs(await starter.getAddress(), true, 1, anyValue, anyValue);
   });
 
   it("should call registry to delete value", async function () {
     await expect(await starter.connect(accounts[1]).deleteVal(1))
       .to.emit(registry, "RunSQL")
-      .withArgs(starter.address, true, 1, anyValue, anyValue);
+      .withArgs(await starter.getAddress(), true, 1, anyValue, anyValue);
   });
 });
